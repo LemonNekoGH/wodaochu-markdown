@@ -1,4 +1,4 @@
-package b2m
+package convert
 
 import (
 	"fmt"
@@ -44,6 +44,11 @@ var backColorHex = map[string]string{
 	"default":                        "#FFFFFF",
 }
 
+type PageToMarkdownContext struct {
+	FootNotes []string
+	Result    string
+}
+
 func richTextStyleToMarkdown(text guolai.RichText) string {
 	ret := strings.TrimSpace(text.Title)
 	if text.Bold {
@@ -77,7 +82,7 @@ func richTextStyleToMarkdown(text guolai.RichText) string {
 //
 // These types are not support:
 // - mention_member
-func richTextToMarkdown(text []guolai.RichText) string {
+func (ctx *PageToMarkdownContext) richTextToMarkdown(text []guolai.RichText) string {
 	ret := ""
 	for _, t := range text {
 		switch t.Type {
@@ -85,6 +90,9 @@ func richTextToMarkdown(text []guolai.RichText) string {
 			ret += richTextStyleToMarkdown(t)
 		case "equation":
 			ret += fmt.Sprintf("$%s$", t.Title)
+		case "footnote":
+			ret += fmt.Sprintf(`[^%d]`, len(ctx.FootNotes)+1)
+			ctx.FootNotes = append(ctx.FootNotes, ctx.richTextToMarkdown(t.Content))
 		}
 	}
 	return ret
@@ -101,22 +109,38 @@ func codeToMarkdown(code guolai.Block) string {
 	return fmt.Sprintf("```%s\n%s\n```\n%s\n", *code.Language, code.Content[0].Title, caption)
 }
 
-func headingToMarkdown(block guolai.Block) string {
+func (ctx *PageToMarkdownContext) headingToMarkdown(block guolai.Block) string {
 	ret := strings.Repeat("#", int(*block.Level))
-	ret += richTextToMarkdown(block.Content)
+	ret += ctx.richTextToMarkdown(block.Content)
 
 	return ret
 }
 
-func BlockToMarkdown(block guolai.BlockApiResponse) string {
-	switch block.Type {
-	case "code":
-		return codeToMarkdown(block.Block)
-	case "heading":
-		return headingToMarkdown(block.Block)
-	case "text":
-		return richTextToMarkdown(block.Block.Content)
+func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
+	ctx := &PageToMarkdownContext{}
+
+	for _, block := range page {
+		ctx.Result += "\n"
+		ctx.Result += ctx.blockToMarkdown(block.Block)
+		ctx.Result += "\n"
 	}
 
-	return ""
+	for index, footnote := range ctx.FootNotes {
+		ctx.Result += fmt.Sprintf("\n[^%d]: %s\n", index+1, footnote)
+	}
+
+	return ctx
+}
+
+func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.Block) string {
+	switch block.Type {
+	case "code":
+		return codeToMarkdown(block)
+	case "heading":
+		return ctx.headingToMarkdown(block)
+	case "text":
+		return ctx.richTextToMarkdown(block.Content)
+	default:
+		return ""
+	}
 }

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/lemonnekogh/guolai"
-	"github.com/lemonnekogh/wodaochu-markdown/internal/pkg/b2m"
+	"github.com/lemonnekogh/wodaochu-markdown/internal/pkg/convert"
 	"os"
 )
 
@@ -17,7 +17,7 @@ func main() {
 		panic(err)
 	}
 
-	for _, child := range children {
-		fmt.Println(b2m.BlockToMarkdown(child))
-	}
+	result := convert.PageToMarkdown(children)
+
+	fmt.Println(result.Result)
 }
