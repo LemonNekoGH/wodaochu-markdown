@@ -124,6 +124,17 @@ func (ctx *PageToMarkdownContext) headingToMarkdown(block guolai.Block) string {
 	return ret
 }
 
+func imageToMarkdown(block guolai.Block) string {
+	var url string
+	if block.Media.Type == "internal" {
+		url = *block.Media.DownloadUrl
+	} else if block.Media.Type == "external" {
+		url = *block.Media.Url
+	}
+
+	return fmt.Sprintf("<img src=\"%s\" width=\"%d\" height=\"%d\">", url, *block.Dimensions.Width, *block.Dimensions.Height)
+}
+
 func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
 	ctx := &PageToMarkdownContext{}
 
@@ -157,6 +168,8 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret += fmt.Sprintf("- %s", ctx.richTextToMarkdown(block.Content))
 	case "divider":
 		ret += "---"
+	case "image":
+		ret += imageToMarkdown(block.Block)
 	}
 
 	if block.Type != "enum_list" && block.Type != "bull_list" {
