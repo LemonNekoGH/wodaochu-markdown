@@ -87,14 +87,22 @@ func (ctx *PageToMarkdownContext) richTextToMarkdown(text []guolai.RichText) str
 	for _, t := range text {
 		switch t.Type {
 		case "text":
-			ret += richTextStyleToMarkdown(t)
+			txt := richTextStyleToMarkdown(t)
+			// link type will be 'text'
+			if t.Link != nil {
+				txt = fmt.Sprintf("[%s](%s)", txt, *t.Link)
+			}
+			ret += txt
 		case "equation":
 			ret += fmt.Sprintf("$%s$", t.Title)
 		case "footnote":
 			ret += fmt.Sprintf(`[^%d]`, len(ctx.FootNotes)+1)
 			ctx.FootNotes = append(ctx.FootNotes, ctx.richTextToMarkdown(t.Content))
+		case "bi_link":
+			ret += fmt.Sprintf("<a href=\"#%s\" style=\"color:inherit;text-decoration:underline dashed;\">%s</a>", *t.BlockId, t.Title)
 		}
 	}
+
 	return ret
 }
 
@@ -121,7 +129,7 @@ func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
 
 	for _, block := range page {
 		ctx.Result += "\n"
-		ctx.Result += ctx.blockToMarkdown(block.Block)
+		ctx.Result += ctx.blockToMarkdown(block)
 		ctx.Result += "\n"
 	}
 
@@ -132,15 +140,16 @@ func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
 	return ctx
 }
 
-func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.Block) string {
+func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse) string {
+	ret := fmt.Sprintf("<p id=\"%s\">\n\n", block.ID)
 	switch block.Type {
 	case "code":
-		return codeToMarkdown(block)
+		ret += codeToMarkdown(block.Block)
 	case "heading":
-		return ctx.headingToMarkdown(block)
+		ret += ctx.headingToMarkdown(block.Block)
 	case "text":
-		return ctx.richTextToMarkdown(block.Content)
-	default:
-		return ""
+		ret += ctx.richTextToMarkdown(block.Content)
 	}
+
+	return ret + "\n\n</p>"
 }
