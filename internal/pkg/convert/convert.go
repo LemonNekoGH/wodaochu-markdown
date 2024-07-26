@@ -51,6 +51,9 @@ type PageToMarkdownContext struct {
 
 func richTextStyleToMarkdown(text guolai.RichText) string {
 	ret := strings.TrimSpace(text.Title)
+	if ret == "" {
+		return ""
+	}
 	if text.Bold {
 		ret = fmt.Sprintf("**%s**", ret)
 	}
