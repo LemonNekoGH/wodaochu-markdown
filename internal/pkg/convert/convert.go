@@ -58,7 +58,7 @@ func richTextStyleToMarkdown(text guolai.RichText) string {
 		ret = fmt.Sprintf("**%s**", ret)
 	}
 	if text.Italic {
-		ret = fmt.Sprintf("_%s_", ret)
+		ret = fmt.Sprintf("*%s*", ret)
 	}
 	if text.Underline {
 		ret = fmt.Sprintf(`<span style="text-decoration:underline;">%s</span>`, ret)
