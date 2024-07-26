@@ -77,6 +77,10 @@ func richTextStyleToMarkdown(text guolai.RichText) string {
 	if text.BackColor != "" {
 		ret = fmt.Sprintf(`<span style="background-color:%s;">%s</span>`, backColor, ret)
 	}
+	// line break in wolai would be '\n', not '<br>' nor '  '
+	if strings.Contains(ret, "\n") {
+		ret = strings.ReplaceAll(ret, "\n", "<br>")
+	}
 
 	return ret
 }
