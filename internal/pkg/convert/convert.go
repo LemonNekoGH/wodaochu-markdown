@@ -107,19 +107,12 @@ func (ctx *PageToMarkdownContext) richTextToMarkdown(text []guolai.RichText) str
 }
 
 func codeToMarkdown(code guolai.Block) string {
-	caption := ""
-	if code.Caption != nil {
-		caption = fmt.Sprintf(`<div style="color:#838383;margin:-0.75rem 10px 0;">%s</div>`, *code.Caption)
-	}
-
-	// captionAlign := "left" // wolai api not return this value
-
-	return fmt.Sprintf("```%s\n%s\n```\n%s\n", *code.Language, code.Content[0].Title, caption)
+	return fmt.Sprintf("```%s\n%s\n```\n", *code.Language, code.Content[0].Title)
 }
 
 func (ctx *PageToMarkdownContext) headingToMarkdown(block guolai.Block) string {
 	ret := strings.Repeat("#", int(*block.Level))
-	ret += ctx.richTextToMarkdown(block.Content)
+	ret += " " + ctx.richTextToMarkdown(block.Content)
 
 	return ret
 }
