@@ -141,7 +141,7 @@ func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
 }
 
 func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse) string {
-	ret := fmt.Sprintf("<p id=\"%s\">\n\n", block.ID)
+	ret := ""
 	switch block.Type {
 	case "code":
 		ret += codeToMarkdown(block.Block)
@@ -149,7 +149,19 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret += ctx.headingToMarkdown(block.Block)
 	case "text":
 		ret += ctx.richTextToMarkdown(block.Content)
+	case "quote":
+		ret += fmt.Sprintf("> %s", ctx.richTextToMarkdown(block.Content))
+	case "enum_list":
+		ret += fmt.Sprintf("1. %s", ctx.richTextToMarkdown(block.Content))
+	case "bull_list":
+		ret += fmt.Sprintf("- %s", ctx.richTextToMarkdown(block.Content))
+	case "divider":
+		ret += "---"
 	}
 
-	return ret + "\n\n</p>"
+	if block.Type != "enum_list" && block.Type != "bull_list" {
+		return fmt.Sprintf("<p id=\"%s\">\n\n%s\n\n</p>", block.ID, ret)
+	}
+
+	return ret
 }
