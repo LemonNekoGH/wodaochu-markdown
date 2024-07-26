@@ -135,6 +135,15 @@ func imageToMarkdown(block guolai.Block) string {
 	return fmt.Sprintf("<img src=\"%s\" width=\"%d\" height=\"%d\">", url, *block.Dimensions.Width, *block.Dimensions.Height)
 }
 
+func (ctx *PageToMarkdownContext) taskListToMarkdown(block guolai.Block) string {
+	checked := " "
+	if block.Checked != nil && *block.Checked {
+		checked = "x"
+	}
+
+	return fmt.Sprintf("- [%s] %s", checked, ctx.richTextToMarkdown(block.Content))
+}
+
 func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
 	ctx := &PageToMarkdownContext{}
 
@@ -170,9 +179,11 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret += "---"
 	case "image":
 		ret += imageToMarkdown(block.Block)
+	case "todo_list":
+		ret += ctx.taskListToMarkdown(block.Block)
 	}
 
-	if block.Type != "enum_list" && block.Type != "bull_list" {
+	if block.Type != "enum_list" && block.Type != "bull_list" && block.Type != "todo_list" {
 		return fmt.Sprintf("<p id=\"%s\">\n\n%s\n\n</p>", block.ID, ret)
 	}
 
