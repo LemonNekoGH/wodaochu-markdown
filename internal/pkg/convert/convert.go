@@ -181,6 +181,8 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret += imageToMarkdown(block.Block)
 	case "todo_list":
 		ret += ctx.taskListToMarkdown(block.Block)
+	case "callout":
+		ret += fmt.Sprintf("::: tip %s\n%s\n:::", block.Icon.Icon, ctx.richTextToMarkdown(block.Content))
 	}
 
 	if block.Type != "enum_list" && block.Type != "bull_list" && block.Type != "todo_list" {

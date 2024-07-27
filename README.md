@@ -1,5 +1,19 @@
 # wodaochu-markdown
-wodaochu-markdown is a tool that can export your wolai page to markdown document.
+`wodaochu-markdown` is a tool that can export your wolai page to markdown document.
+
+## Block converting behaviors
+### Callout
+Callout will be converted to containers, marquee mode not supported currently, font awesome icon not supported currently.
+
+Example:
+![Example](./docs/images/callout.png)
+
+It will be convert to:
+```markdown
+::: TIP ⚠️
+A callout.
+:::
+```
 
 ## Extended syntaxes support in markdown parsers
 ### [Task lists](https://www.markdownguide.org/extended-syntax/#task-lists)
@@ -10,3 +24,6 @@ wodaochu-markdown is a tool that can export your wolai page to markdown document
 
 ### Equations
 - `markdown-it` - The [`markdown-it-mathjax3`](https://www.npmjs.com/package/markdown-it-mathjax3) plugin provides support of it.
+
+### Containers
+- `markdown-it` - The [`markdown-it-container`](https://www.npmjs.com/package/markdown-it-container) plugin provides support of it.
