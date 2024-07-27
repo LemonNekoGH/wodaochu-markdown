@@ -8,12 +8,17 @@ Callout will be converted to containers, marquee mode not supported currently, f
 Example:
 ![Example](./docs/images/callout.png)
 
+block.
+    block children.
+
 It will be convert to:
 ```markdown
 ::: TIP ⚠️
 A callout.
 :::
 ```
+### Embed
+Embed will be converted to [iframe](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe), but we cannot set the height of iframe because the API does not return this field.
 
 ## Extended syntaxes support in markdown parsers
 ### [Task lists](https://www.markdownguide.org/extended-syntax/#task-lists)
