@@ -1,15 +1,23 @@
 # wodaochu-markdown
 `wodaochu-markdown` is a tool that can export your wolai page to markdown document.
 
+## Get started
+### Installation
+Install with `go get`:
+```bash
+go install github.com/lemonnekogh/wodaochu-markdown@latest
+```
+### Usage
+```bash
+wodaochu-markdown <your-token> <page-id> <output-dir>
+```
+
 ## Block converting behaviors
 ### Callout
 Callout will be converted to containers, marquee mode not supported currently, font awesome icon not supported currently.
 
 Example:
 ![Example](./docs/images/callout.png)
-
-block.
-    block children.
 
 It will be convert to:
 ```markdown
