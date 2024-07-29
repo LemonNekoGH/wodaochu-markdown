@@ -115,7 +115,11 @@ func (ctx *PageToMarkdownContext) richTextToMarkdown(text []guolai.RichText) str
 }
 
 func codeToMarkdown(code guolai.Block) string {
-	return fmt.Sprintf("```%s\n%s\n```\n", *code.Language, code.Content[0].Title)
+	language := "plaintext"
+	if code.Language != nil {
+		language = string(*code.Language)
+	}
+	return fmt.Sprintf("```%s\n%s\n```\n", language, code.Content[0].Title)
 }
 
 func (ctx *PageToMarkdownContext) headingToMarkdown(block guolai.Block) string {
