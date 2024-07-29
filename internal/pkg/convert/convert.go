@@ -2,8 +2,10 @@ package convert
 
 import (
 	"fmt"
-	"github.com/lemonnekogh/guolai"
+	"net/url"
 	"strings"
+
+	"github.com/lemonnekogh/guolai"
 )
 
 // https://www.wolai.com/wolai/o2v1vrLkP2qUuZTH6iDZY9
@@ -98,7 +100,7 @@ func (ctx *PageToMarkdownContext) richTextToMarkdown(text []guolai.RichText) str
 			txt := richTextStyleToMarkdown(t)
 			// link type will be 'text'
 			if t.Link != nil {
-				txt = fmt.Sprintf("[%s](%s)", txt, *t.Link)
+				txt = fmt.Sprintf("[%s](<%s>)", txt, *t.Link)
 			}
 			ret += txt
 		case "equation":
@@ -137,7 +139,7 @@ func imageToMarkdown(block guolai.Block) string {
 		url = *block.Media.Url
 	}
 
-	return fmt.Sprintf("<img src=\"%s\" width=\"%d\" height=\"%d\">", url, *block.Dimensions.Width, *block.Dimensions.Height)
+	return fmt.Sprintf("<img src=\"%s\" width=\"%f\" height=\"%f\">", url, *block.Dimensions.Width, *block.Dimensions.Height)
 }
 
 func (ctx *PageToMarkdownContext) taskListToMarkdown(block guolai.Block) string {
@@ -197,7 +199,7 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 	case "page":
 		title := ctx.richTextToMarkdown(block.Content)
 		ctx.ChildPages[block.ID] = title
-		ret += fmt.Sprintf("[%s](./%s/index.md)", title, title)
+		ret += fmt.Sprintf("[%s](./%s/index.md)", title, url.PathEscape(title))
 	}
 
 	if block.Type != "enum_list" && block.Type != "bull_list" && block.Type != "todo_list" {
