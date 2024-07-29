@@ -6,6 +6,7 @@ import (
 	"github.com/lemonnekogh/guolai"
 	"github.com/lemonnekogh/wodaochu-markdown/internal/pkg/convert"
 	"os"
+	"time"
 )
 
 const (
@@ -25,6 +26,11 @@ func processWolaiError(err guolai.WolaiError, blockId string) {
 	if err.Code == 17011 {
 		fmt.Println("failed to get content of block " + blockId + ": permission denied")
 		os.Exit(exitCodePermissionError)
+	}
+
+	if err.Code == 17007 {
+		fmt.Println("API rate limit exceeded, waiting for 5 seconds...")
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -47,9 +53,12 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 		var wolaiErr guolai.WolaiError
 		if errors.As(err, &wolaiErr) {
 			processWolaiError(wolaiErr, pageId)
+			// retry
+			pageToMarkdown(wolaiClient, pageId, outputDir, pageTitle)
+		} else {
+			fmt.Printf("failed to get content of block %s: %v\n", pageId, err)
+			os.Exit(exitCodeUnknownError)
 		}
-		fmt.Printf("failed to get content of block %s: %v\n", pageId, err)
-		os.Exit(exitCodeUnknownError)
 	}
 
 	result := convert.PageToMarkdown(children)
