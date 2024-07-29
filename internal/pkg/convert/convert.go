@@ -45,8 +45,9 @@ var backColorHex = map[string]string{
 }
 
 type PageToMarkdownContext struct {
-	FootNotes []string
-	Result    string
+	FootNotes  []string
+	Result     string
+	ChildPages map[string]string
 }
 
 func richTextStyleToMarkdown(text guolai.RichText) string {
@@ -145,7 +146,9 @@ func (ctx *PageToMarkdownContext) taskListToMarkdown(block guolai.Block) string 
 }
 
 func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
-	ctx := &PageToMarkdownContext{}
+	ctx := &PageToMarkdownContext{
+		ChildPages: map[string]string{},
+	}
 
 	for _, block := range page {
 		ctx.Result += "\n"
@@ -187,6 +190,10 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret += fmt.Sprintf("$$%s$$", block.Content[0].Title)
 	case "embed":
 		ret += fmt.Sprintf(`<iframe src="%s" width="100%%" style="border:none;"></iframe>`, *block.EmbedLink)
+	case "page":
+		title := ctx.richTextToMarkdown(block.Content)
+		ctx.ChildPages[block.ID] = title
+		ret += fmt.Sprintf("[%s](./%s/index.md)", title, title)
 	}
 
 	if block.Type != "enum_list" && block.Type != "bull_list" && block.Type != "todo_list" {
