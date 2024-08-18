@@ -151,10 +151,12 @@ func (ctx *PageToMarkdownContext) taskListToMarkdown(block guolai.Block) string 
 	return fmt.Sprintf("- [%s] %s", checked, ctx.richTextToMarkdown(block.Content))
 }
 
-func PageToMarkdown(page []guolai.BlockApiResponse) *PageToMarkdownContext {
+func PageToMarkdown(title string, page []guolai.BlockApiResponse) *PageToMarkdownContext {
 	ctx := &PageToMarkdownContext{
 		ChildPages: map[string]string{},
 	}
+
+	ctx.Result += fmt.Sprintf("# " + title)
 
 	for _, block := range page {
 		ctx.Result += "\n"
