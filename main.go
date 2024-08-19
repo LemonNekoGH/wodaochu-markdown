@@ -3,10 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/lemonnekogh/guolai"
-	"github.com/lemonnekogh/wodaochu-markdown/internal/pkg/convert"
 	"os"
 	"time"
+
+	"github.com/lemonnekogh/guolai"
+	"github.com/lemonnekogh/wodaochu-markdown/internal/pkg/convert"
 )
 
 const (
@@ -47,36 +48,42 @@ func checkOutputDir(outputDir string) {
 	}
 }
 
-func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir string, pageTitle string) {
+func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir string, pageTitle string, root bool) {
+	fmt.Printf("fetching content of page: %s, %s\n", pageId, pageTitle)
+
 	children, err := wolaiClient.GetBlockChildren(pageId)
 	if err != nil {
 		var wolaiErr guolai.WolaiError
 		if errors.As(err, &wolaiErr) {
 			processWolaiError(wolaiErr, pageId)
 			// retry
-			pageToMarkdown(wolaiClient, pageId, outputDir, pageTitle)
+			pageToMarkdown(wolaiClient, pageId, outputDir, pageTitle, root)
 		} else {
 			fmt.Printf("failed to get content of block %s: %v\n", pageId, err)
 			os.Exit(exitCodeUnknownError)
 		}
 	}
 
-	result := convert.PageToMarkdown(children)
+	result := convert.PageToMarkdown(pageTitle, children)
+	outputDirWithTitle := outputDir + "/" + pageTitle
+	if root {
+		outputDirWithTitle = outputDir
+	}
 
-	err = os.MkdirAll(outputDir+"/"+pageTitle, 0755)
+	err = os.MkdirAll(outputDirWithTitle, 0755)
 	if err != nil {
 		fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle)
 		os.Exit(exitCodeOutputError)
 	}
 
-	err = os.WriteFile(outputDir+"/"+pageTitle+"/index.md", []byte(result.Result), 0755)
+	err = os.WriteFile(outputDirWithTitle+"/index.md", []byte(result.Result), 0755)
 	if err != nil {
 		fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle + "/index.md")
 		os.Exit(exitCodeOutputError)
 	}
 
 	for childId, childTitle := range result.ChildPages {
-		pageToMarkdown(wolaiClient, childId, outputDir+"/"+pageTitle, childTitle)
+		pageToMarkdown(wolaiClient, childId, outputDirWithTitle, childTitle, false)
 	}
 }
 
@@ -93,5 +100,17 @@ func main() {
 	checkOutputDir(outputDir)
 
 	wolaiClient := guolai.New(wolaiToken)
-	pageToMarkdown(wolaiClient, pageId, outputDir, "")
+
+	page, err := wolaiClient.GetBlocks(pageId)
+	if err != nil {
+		var wolaiErr guolai.WolaiError
+		if errors.As(err, &wolaiErr) {
+			processWolaiError(wolaiErr, pageId)
+		} else {
+			fmt.Printf("failed to get content of block %s: %v\n", pageId, err)
+			os.Exit(exitCodeUnknownError)
+		}
+	}
+
+	pageToMarkdown(wolaiClient, pageId, outputDir, page.Block.Content[0].Title, true)
 }
