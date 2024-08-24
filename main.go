@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lemonnekogh/guolai"
@@ -83,6 +84,10 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 	}
 
 	for childId, childTitle := range result.ChildPages {
+		if strings.TrimSpace(childTitle) == "" {
+			pageToMarkdown(wolaiClient, childId, outputDirWithTitle, "untitledNewPage", false)
+			continue
+		}
 		pageToMarkdown(wolaiClient, childId, outputDirWithTitle, childTitle, false)
 	}
 }
