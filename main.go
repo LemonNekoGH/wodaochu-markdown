@@ -3,7 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
+	"mime"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lemonnekogh/guolai"
@@ -68,6 +72,49 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 	outputDirWithTitle := outputDir + "/" + pageTitle
 	if root {
 		outputDirWithTitle = outputDir
+	}
+
+	// download images
+	for url, fileName := range result.Images {
+		fmt.Println("downloading image: " + url)
+
+		resp, err2 := http.Get(url)
+		if err2 != nil {
+			fmt.Println("failed to download image: " + url + ", " + err2.Error())
+			os.Exit(exitCodeOutputError)
+		}
+		contentType := resp.Header.Get("Content-Type")
+		fileExtension, err2 := mime.ExtensionsByType(contentType)
+		if err2 != nil {
+			fmt.Println("failed to get extension of image: " + url + ", " + err2.Error())
+			os.Exit(exitCodeOutputError)
+		}
+		if fileExtension == nil {
+			fmt.Println("no file extension associated with content type: " + contentType)
+		}
+
+		defer resp.Body.Close()
+
+		err2 = os.MkdirAll(outputDirWithTitle+"/assets/", 0755)
+		if err2 != nil {
+			fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle)
+			os.Exit(exitCodeOutputError)
+		}
+
+		crefile, err2 := os.Create(outputDirWithTitle + "/assets/" + fileName + fileExtension[0])
+		if err2 != nil {
+			fmt.Println("failed to create image file: " + outputDir + "/" + pageTitle + "/assets/" + fileName + ", error: " + err2.Error())
+			os.Exit(exitCodeOutputError)
+		}
+		defer crefile.Close()
+
+		_, err2 = io.Copy(crefile, resp.Body)
+		if err2 != nil {
+			fmt.Println("failed to write image file: " + outputDir + "/" + pageTitle + "/assets/" + fileName + ", error: " + err2.Error())
+			os.Exit(exitCodeOutputError)
+		}
+
+		result.Result = strings.ReplaceAll(result.Result, "["+fileName+"]", "./assets/"+fileName+fileExtension[0])
 	}
 
 	err = os.MkdirAll(outputDirWithTitle, 0755)

@@ -50,6 +50,7 @@ type PageToMarkdownContext struct {
 	FootNotes  []string
 	Result     string
 	ChildPages map[string]string
+	Images     map[string]string
 }
 
 func richTextStyleToMarkdown(text guolai.RichText) string {
@@ -131,7 +132,7 @@ func (ctx *PageToMarkdownContext) headingToMarkdown(block guolai.Block) string {
 	return ret
 }
 
-func imageToMarkdown(block guolai.Block) string {
+func (ctx *PageToMarkdownContext) imageToMarkdown(block guolai.Block) string {
 	var url string
 	if block.Media.Type == "internal" {
 		url = *block.Media.DownloadUrl
@@ -139,7 +140,10 @@ func imageToMarkdown(block guolai.Block) string {
 		url = *block.Media.Url
 	}
 
-	return fmt.Sprintf("<img src=\"%s\" width=\"%f\" height=\"%f\">", url, *block.Dimensions.Width, *block.Dimensions.Height)
+	fileName := fmt.Sprintf("image%d", len(ctx.Images))
+	ctx.Images[url] = fileName
+
+	return fmt.Sprintf("<img src=\"[%s]\" width=\"%f\" height=\"%f\">", fileName, *block.Dimensions.Width, *block.Dimensions.Height)
 }
 
 func (ctx *PageToMarkdownContext) taskListToMarkdown(block guolai.Block) string {
@@ -154,6 +158,7 @@ func (ctx *PageToMarkdownContext) taskListToMarkdown(block guolai.Block) string 
 func PageToMarkdown(title string, page []guolai.BlockApiResponse) *PageToMarkdownContext {
 	ctx := &PageToMarkdownContext{
 		ChildPages: map[string]string{},
+		Images:     map[string]string{},
 	}
 
 	ctx.Result += fmt.Sprintf("# " + title)
@@ -189,7 +194,7 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 	case "divider":
 		ret += "---"
 	case "image":
-		ret += imageToMarkdown(block.Block)
+		ret += ctx.imageToMarkdown(block.Block)
 	case "todo_list":
 		ret += ctx.taskListToMarkdown(block.Block)
 	case "callout":
