@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lemonnekogh/guolai"
