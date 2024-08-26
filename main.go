@@ -12,6 +12,7 @@ import (
 
 	"github.com/lemonnekogh/guolai"
 	"github.com/lemonnekogh/wodaochu-markdown/internal/pkg/convert"
+	"github.com/samber/lo"
 )
 
 const (
@@ -52,6 +53,14 @@ func checkOutputDir(outputDir string) {
 	}
 }
 
+func blockResultToString(results []convert.BlockContent, indent string) string {
+	str := lo.Map(results, func(it convert.BlockContent, index int) string {
+		return indent + it.Content + "\n" + blockResultToString(it.Children, indent+"\t")
+	})
+
+	return strings.Join(str, "")
+}
+
 func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir string, pageTitle string, root bool) {
 	fmt.Printf("fetching content of page: %s, %s\n", pageId, pageTitle)
 
@@ -73,6 +82,8 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 	if root {
 		outputDirWithTitle = outputDir
 	}
+
+	stringResult := blockResultToString(result.Result, "")
 
 	// download images
 	for url, fileName := range result.Images {
@@ -114,7 +125,7 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 			os.Exit(exitCodeOutputError)
 		}
 
-		result.Result = strings.ReplaceAll(result.Result, "["+fileName+"]", "./assets/"+fileName+fileExtension[0])
+		stringResult = strings.ReplaceAll(stringResult, "["+fileName+"]", "./assets/"+fileName+fileExtension[0])
 	}
 
 	err = os.MkdirAll(outputDirWithTitle, 0755)
@@ -124,7 +135,7 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 	}
 
 	// FIXME: Page content will be overwrite if title duplicated
-	err = os.WriteFile(outputDirWithTitle+"/index.md", []byte(result.Result), 0755)
+	err = os.WriteFile(outputDirWithTitle+"/index.md", []byte(stringResult), 0755)
 	if err != nil {
 		fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle + "/index.md")
 		os.Exit(exitCodeOutputError)

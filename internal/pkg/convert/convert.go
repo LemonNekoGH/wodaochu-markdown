@@ -46,9 +46,14 @@ var backColorHex = map[string]string{
 	"default":                        "#FFFFFF",
 }
 
+type BlockContent struct {
+	Content  string
+	Children []BlockContent
+}
+
 type PageToMarkdownContext struct {
 	FootNotes  []string
-	Result     string
+	Result     []BlockContent
 	ChildPages map[string]string
 	Images     map[string]string
 }
@@ -159,61 +164,61 @@ func PageToMarkdown(title string, page []guolai.BlockApiResponse) *PageToMarkdow
 	ctx := &PageToMarkdownContext{
 		ChildPages: map[string]string{},
 		Images:     map[string]string{},
+		Result:     []BlockContent{},
 	}
 
-	ctx.Result += fmt.Sprintf("# " + title)
+	ctx.Result = append(ctx.Result, BlockContent{Content: "# " + title})
 
 	for _, block := range page {
-		ctx.Result += "\n"
-		ctx.Result += ctx.blockToMarkdown(block)
-		ctx.Result += "\n"
+		ctx.Result = append(ctx.Result, ctx.blockToMarkdown(block))
+		ctx.Result = append(ctx.Result, BlockContent{Content: "\n"})
 	}
 
 	for index, footnote := range ctx.FootNotes {
-		ctx.Result += fmt.Sprintf("\n[^%d]: %s\n", index+1, footnote)
+		ctx.Result = append(ctx.Result, BlockContent{Content: fmt.Sprintf("\n[^%d]: %s\n", index+1, footnote)})
 	}
 
 	return ctx
 }
 
-func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse) string {
-	ret := ""
+func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse) BlockContent {
+	ret := BlockContent{}
 	switch block.Type {
 	case "code":
-		ret += codeToMarkdown(block.Block)
+		ret.Content = codeToMarkdown(block.Block)
 	case "heading":
-		ret += ctx.headingToMarkdown(block.Block)
+		ret.Content = ctx.headingToMarkdown(block.Block)
 	case "text":
-		ret += ctx.richTextToMarkdown(block.Content)
+		ret.Content = ctx.richTextToMarkdown(block.Content)
 	case "quote":
-		ret += fmt.Sprintf("> %s", ctx.richTextToMarkdown(block.Content))
+		ret.Content = fmt.Sprintf("> %s", ctx.richTextToMarkdown(block.Content))
 	case "enum_list":
-		ret += fmt.Sprintf("1. %s", ctx.richTextToMarkdown(block.Content))
+		ret.Content = fmt.Sprintf("1. %s", ctx.richTextToMarkdown(block.Content))
 	case "bull_list":
-		ret += fmt.Sprintf("- %s", ctx.richTextToMarkdown(block.Content))
+		ret.Content = fmt.Sprintf("- %s", ctx.richTextToMarkdown(block.Content))
 	case "divider":
-		ret += "---"
+		ret.Content = "---"
 	case "image":
-		ret += ctx.imageToMarkdown(block.Block)
+		ret.Content = ctx.imageToMarkdown(block.Block)
 	case "todo_list":
-		ret += ctx.taskListToMarkdown(block.Block)
+		ret.Content = ctx.taskListToMarkdown(block.Block)
 	case "callout":
-		ret += fmt.Sprintf("::: tip %s\n%s\n:::", block.Icon.Icon, ctx.richTextToMarkdown(block.Content))
+		ret.Content = fmt.Sprintf("::: tip %s\n%s\n:::", block.Icon.Icon, ctx.richTextToMarkdown(block.Content))
 	case "block_equation":
-		ret += fmt.Sprintf("$$%s$$", block.Content[0].Title)
+		ret.Content = fmt.Sprintf("$$%s$$", block.Content[0].Title)
 	case "embed":
-		ret += fmt.Sprintf(`<iframe src="%s" width="100%%" style="border:none;"></iframe>`, *block.EmbedLink)
+		ret.Content = fmt.Sprintf(`<iframe src="%s" width="100%%" style="border:none;"></iframe>`, *block.EmbedLink)
 	case "page":
 		title := ctx.richTextToMarkdown(block.Content)
 		if strings.TrimSpace(title) == "" {
 			title = "untitled-page-" + block.ID
 		}
 		ctx.ChildPages[block.ID] = title
-		ret += fmt.Sprintf("[%s](./%s/index.md)", title, url.PathEscape(title))
+		ret.Content = fmt.Sprintf("[%s](./%s/index.md)", title, url.PathEscape(title))
 	}
 
 	if block.Type != "enum_list" && block.Type != "bull_list" && block.Type != "todo_list" {
-		return fmt.Sprintf("<p id=\"%s\">\n\n%s\n\n</p>", block.ID, ret)
+		ret.Content = fmt.Sprintf("<p id=\"%s\">\n\n%s\n\n</p>", block.ID, ret.Content)
 	}
 
 	return ret
