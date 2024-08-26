@@ -8,54 +8,31 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/lemonnekogh/guolai"
 	"github.com/lemonnekogh/wodaochu-markdown/internal/pkg/convert"
 	"github.com/samber/lo"
 )
 
-const (
-	exitCodeParamError = iota + 1
-	exitCodeTokenError
-	exitCodePermissionError
-	exitCodeOutputError
-	exitCodeUnknownError
-)
-
-func processWolaiError(err guolai.WolaiError, blockId string) {
-	if err.Code == 17003 {
-		fmt.Println("token is invalid")
-		os.Exit(exitCodeTokenError)
-	}
-
-	if err.Code == 17011 {
-		fmt.Println("failed to get content of block " + blockId + ": permission denied")
-		os.Exit(exitCodePermissionError)
-	}
-
-	if err.Code == 17007 {
-		fmt.Println("API rate limit exceeded, waiting for 5 seconds...")
-		time.Sleep(5 * time.Second)
-	}
-}
-
 func checkOutputDir(outputDir string) {
 	info, err := os.Stat(outputDir)
 	if os.IsNotExist(err) {
 		fmt.Println("output directory does not exist")
-		os.Exit(exitCodeParamError)
+		os.Exit(convert.ExitCodeParamError)
 	}
 
 	if !info.IsDir() {
 		fmt.Println("output directory is not a directory")
-		os.Exit(exitCodeParamError)
+		os.Exit(convert.ExitCodeParamError)
 	}
 }
 
 func blockResultToString(results []convert.BlockContent, indent string) string {
 	str := lo.Map(results, func(it convert.BlockContent, index int) string {
-		return indent + it.Content + "\n" + blockResultToString(it.Children, indent+"\t")
+		content := lo.Map(strings.Split(it.Content, "\n"), func(line string, _ int) string {
+			return indent + line + "\n"
+		})
+		return strings.Join(content, "") + blockResultToString(it.Children, indent+"\t")
 	})
 
 	return strings.Join(str, "")
@@ -68,16 +45,16 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 	if err != nil {
 		var wolaiErr guolai.WolaiError
 		if errors.As(err, &wolaiErr) {
-			processWolaiError(wolaiErr, pageId)
+			convert.ProcessWolaiError(wolaiErr, pageId)
 			// retry
 			pageToMarkdown(wolaiClient, pageId, outputDir, pageTitle, root)
 		} else {
 			fmt.Printf("failed to get content of block %s: %v\n", pageId, err)
-			os.Exit(exitCodeUnknownError)
+			os.Exit(convert.ExitCodeUnknownError)
 		}
 	}
 
-	result := convert.PageToMarkdown(pageTitle, children)
+	result := convert.PageToMarkdown(wolaiClient, pageTitle, children)
 	outputDirWithTitle := outputDir + "/" + pageTitle
 	if root {
 		outputDirWithTitle = outputDir
@@ -92,13 +69,13 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 		resp, err2 := http.Get(url)
 		if err2 != nil {
 			fmt.Println("failed to download image: " + url + ", " + err2.Error())
-			os.Exit(exitCodeOutputError)
+			os.Exit(convert.ExitCodeOutputError)
 		}
 		contentType := resp.Header.Get("Content-Type")
 		fileExtension, err2 := mime.ExtensionsByType(contentType)
 		if err2 != nil {
 			fmt.Println("failed to get extension of image: " + url + ", " + err2.Error())
-			os.Exit(exitCodeOutputError)
+			os.Exit(convert.ExitCodeOutputError)
 		}
 		if fileExtension == nil {
 			fmt.Println("no file extension associated with content type: " + contentType)
@@ -109,20 +86,20 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 		err2 = os.MkdirAll(outputDirWithTitle+"/assets/", 0755)
 		if err2 != nil {
 			fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle)
-			os.Exit(exitCodeOutputError)
+			os.Exit(convert.ExitCodeOutputError)
 		}
 
 		crefile, err2 := os.Create(outputDirWithTitle + "/assets/" + fileName + fileExtension[0])
 		if err2 != nil {
 			fmt.Println("failed to create image file: " + outputDir + "/" + pageTitle + "/assets/" + fileName + ", error: " + err2.Error())
-			os.Exit(exitCodeOutputError)
+			os.Exit(convert.ExitCodeOutputError)
 		}
 		defer crefile.Close()
 
 		_, err2 = io.Copy(crefile, resp.Body)
 		if err2 != nil {
 			fmt.Println("failed to write image file: " + outputDir + "/" + pageTitle + "/assets/" + fileName + ", error: " + err2.Error())
-			os.Exit(exitCodeOutputError)
+			os.Exit(convert.ExitCodeOutputError)
 		}
 
 		stringResult = strings.ReplaceAll(stringResult, "["+fileName+"]", "./assets/"+fileName+fileExtension[0])
@@ -131,14 +108,14 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 	err = os.MkdirAll(outputDirWithTitle, 0755)
 	if err != nil {
 		fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle)
-		os.Exit(exitCodeOutputError)
+		os.Exit(convert.ExitCodeOutputError)
 	}
 
 	// FIXME: Page content will be overwrite if title duplicated
 	err = os.WriteFile(outputDirWithTitle+"/index.md", []byte(stringResult), 0755)
 	if err != nil {
 		fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle + "/index.md")
-		os.Exit(exitCodeOutputError)
+		os.Exit(convert.ExitCodeOutputError)
 	}
 
 	for childId, childTitle := range result.ChildPages {
@@ -149,7 +126,7 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 func main() {
 	if len(os.Args) < 4 {
 		fmt.Println("Usage: wodaochu-markdown <wolai-token> <page-id> <output-dir>")
-		os.Exit(exitCodeParamError)
+		os.Exit(convert.ExitCodeParamError)
 	}
 
 	wolaiToken := os.Args[1]
@@ -164,10 +141,10 @@ func main() {
 	if err != nil {
 		var wolaiErr guolai.WolaiError
 		if errors.As(err, &wolaiErr) {
-			processWolaiError(wolaiErr, pageId)
+			convert.ProcessWolaiError(wolaiErr, pageId)
 		} else {
 			fmt.Printf("failed to get content of block %s: %v\n", pageId, err)
-			os.Exit(exitCodeUnknownError)
+			os.Exit(convert.ExitCodeUnknownError)
 		}
 	}
 

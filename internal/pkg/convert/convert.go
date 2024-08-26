@@ -1,9 +1,12 @@
 package convert
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/lemonnekogh/guolai"
 )
@@ -46,6 +49,14 @@ var backColorHex = map[string]string{
 	"default":                        "#FFFFFF",
 }
 
+const (
+	ExitCodeParamError = iota + 1
+	ExitCodeTokenError
+	ExitCodePermissionError
+	ExitCodeOutputError
+	ExitCodeUnknownError
+)
+
 type BlockContent struct {
 	Content  string
 	Children []BlockContent
@@ -53,9 +64,27 @@ type BlockContent struct {
 
 type PageToMarkdownContext struct {
 	FootNotes  []string
-	Result     []BlockContent
+	Result     []BlockContent // if use map, we can fetch child blocks outside the convert package, but map is unsorted
 	ChildPages map[string]string
 	Images     map[string]string
+}
+
+// FIXME: dirty code
+func ProcessWolaiError(err guolai.WolaiError, blockId string) {
+	if err.Code == 17003 {
+		fmt.Println("token is invalid")
+		os.Exit(ExitCodeTokenError)
+	}
+
+	if err.Code == 17011 {
+		fmt.Println("failed to get content of block " + blockId + ": permission denied")
+		os.Exit(ExitCodePermissionError)
+	}
+
+	if err.Code == 17007 {
+		fmt.Println("failed to fetch block: " + blockId + ", API rate limit exceeded, waiting for 5 seconds...")
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func richTextStyleToMarkdown(text guolai.RichText) string {
@@ -160,7 +189,54 @@ func (ctx *PageToMarkdownContext) taskListToMarkdown(block guolai.Block) string 
 	return fmt.Sprintf("- [%s] %s", checked, ctx.richTextToMarkdown(block.Content))
 }
 
-func PageToMarkdown(title string, page []guolai.BlockApiResponse) *PageToMarkdownContext {
+func (ctx *PageToMarkdownContext) fetchChildBlock(wolaiClient *guolai.WolaiAPI, blockId string) []BlockContent {
+	blockChildren := []BlockContent{}
+
+	fmt.Printf("fetching children of block: %s\n", blockId)
+
+	blocks, err := wolaiClient.GetBlockChildren(blockId)
+	if err != nil {
+		var wolaiErr guolai.WolaiError
+		if errors.As(err, &wolaiErr) {
+			ProcessWolaiError(wolaiErr, blockId)
+		} else {
+			fmt.Printf("failed to get content of block %s: %v\n", blockId, err)
+			os.Exit(ExitCodeUnknownError)
+		}
+	}
+
+	// retry, but dirty
+	for err != nil {
+		blocks, err = wolaiClient.GetBlockChildren(blockId)
+		if err != nil {
+			var wolaiErr guolai.WolaiError
+			if errors.As(err, &wolaiErr) {
+				ProcessWolaiError(wolaiErr, blockId)
+			} else {
+				fmt.Printf("failed to get content of block %s: %v\n", blockId, err)
+				os.Exit(ExitCodeUnknownError)
+			}
+		}
+	}
+
+	for _, block := range blocks {
+		blockContent := ctx.blockToMarkdown(block)
+		if blockContent.Children != nil {
+			blockContent.Children = ctx.fetchChildBlock(wolaiClient, block.ID)
+		}
+
+		// should not append line break when a block is list or quote
+		if blockContent.Children == nil {
+			ctx.Result = append(ctx.Result, BlockContent{Content: "\n"})
+		}
+
+		blockChildren = append(blockChildren, blockContent)
+	}
+
+	return blockChildren
+}
+
+func PageToMarkdown(wolaiClient *guolai.WolaiAPI, title string, page []guolai.BlockApiResponse) *PageToMarkdownContext {
 	ctx := &PageToMarkdownContext{
 		ChildPages: map[string]string{},
 		Images:     map[string]string{},
@@ -170,7 +246,12 @@ func PageToMarkdown(title string, page []guolai.BlockApiResponse) *PageToMarkdow
 	ctx.Result = append(ctx.Result, BlockContent{Content: "# " + title})
 
 	for _, block := range page {
-		ctx.Result = append(ctx.Result, ctx.blockToMarkdown(block))
+		blockContent := ctx.blockToMarkdown(block)
+		if blockContent.Children != nil {
+			blockContent.Children = ctx.fetchChildBlock(wolaiClient, block.ID)
+		}
+
+		ctx.Result = append(ctx.Result, blockContent)
 		ctx.Result = append(ctx.Result, BlockContent{Content: "\n"})
 	}
 
@@ -194,14 +275,17 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret.Content = fmt.Sprintf("> %s", ctx.richTextToMarkdown(block.Content))
 	case "enum_list":
 		ret.Content = fmt.Sprintf("1. %s", ctx.richTextToMarkdown(block.Content))
+		ret.Children = []BlockContent{}
 	case "bull_list":
 		ret.Content = fmt.Sprintf("- %s", ctx.richTextToMarkdown(block.Content))
+		ret.Children = []BlockContent{}
 	case "divider":
 		ret.Content = "---"
 	case "image":
 		ret.Content = ctx.imageToMarkdown(block.Block)
 	case "todo_list":
 		ret.Content = ctx.taskListToMarkdown(block.Block)
+		ret.Children = []BlockContent{}
 	case "callout":
 		ret.Content = fmt.Sprintf("::: tip %s\n%s\n:::", block.Icon.Icon, ctx.richTextToMarkdown(block.Content))
 	case "block_equation":
