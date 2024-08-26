@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/lemonnekogh/guolai"
@@ -77,6 +76,7 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 		os.Exit(exitCodeOutputError)
 	}
 
+	// FIXME: Page content will be overwrite if title duplicated
 	err = os.WriteFile(outputDirWithTitle+"/index.md", []byte(result.Result), 0755)
 	if err != nil {
 		fmt.Println("failed to create convert result to: " + outputDir + "/" + pageTitle + "/index.md")
@@ -84,10 +84,6 @@ func pageToMarkdown(wolaiClient *guolai.WolaiAPI, pageId string, outputDir strin
 	}
 
 	for childId, childTitle := range result.ChildPages {
-		if strings.TrimSpace(childTitle) == "" {
-			pageToMarkdown(wolaiClient, childId, outputDirWithTitle, "untitledNewPage", false)
-			continue
-		}
 		pageToMarkdown(wolaiClient, childId, outputDirWithTitle, childTitle, false)
 	}
 }

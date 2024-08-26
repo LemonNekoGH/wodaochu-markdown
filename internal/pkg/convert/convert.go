@@ -200,6 +200,9 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret += fmt.Sprintf(`<iframe src="%s" width="100%%" style="border:none;"></iframe>`, *block.EmbedLink)
 	case "page":
 		title := ctx.richTextToMarkdown(block.Content)
+		if strings.TrimSpace(title) == "" {
+			title = "untitled-page-" + block.ID
+		}
 		ctx.ChildPages[block.ID] = title
 		ret += fmt.Sprintf("[%s](./%s/index.md)", title, url.PathEscape(title))
 	}
