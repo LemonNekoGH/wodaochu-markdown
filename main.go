@@ -29,9 +29,9 @@ func checkOutputDir(outputDir string) {
 
 func blockResultToString(results []convert.BlockContent, indent string) string {
 	str := lo.Map(results, func(it convert.BlockContent, index int) string {
-		content := lo.Map(strings.Split(it.Content, "\n"), func(line string, _ int) string {
+		content := lo.Map(it.Content, func(line string, _ int) string {
 			return indent + line + "\n"
-		})
+		}) // avoid multiple line break <p> tag
 		return strings.Join(content, "") + blockResultToString(it.Children, indent+"\t")
 	})
 

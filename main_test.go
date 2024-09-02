@@ -18,24 +18,24 @@ func TestBlockResultToString(t *testing.T) {
 2. list item 2
 `, blockResultToString([]convert.BlockContent{
 		{
-			Content: "Hello World",
+			Content: []string{"Hello World"},
 		},
 		{
-			Content: "1. list item 1",
+			Content: []string{"1. list item 1"},
 			Children: []convert.BlockContent{{
-				Content: "1. child of list item 1",
+				Content: []string{"1. child of list item 1"},
 				Children: []convert.BlockContent{
 					{
-						Content: "1. child of child of list item 1",
+						Content: []string{"1. child of child of list item 1"},
 					},
 					{
-						Content: "2. child of child of list item 2",
+						Content: []string{"2. child of child of list item 2"},
 					},
 				},
 			}},
 		},
 		{
-			Content: "2. list item 2",
+			Content: []string{"2. list item 2"},
 		},
 	}, ""))
 }

@@ -58,7 +58,7 @@ const (
 )
 
 type BlockContent struct {
-	Content  string
+	Content  []string
 	Children []BlockContent
 }
 
@@ -151,19 +151,35 @@ func (ctx *PageToMarkdownContext) richTextToMarkdown(text []guolai.RichText) str
 	return ret
 }
 
-func codeToMarkdown(code guolai.Block) string {
+func codeToMarkdown(code guolai.Block) []string {
 	language := "plaintext"
 	if code.Language != nil {
 		language = string(*code.Language)
 	}
-	return fmt.Sprintf("```%s\n%s\n```\n", language, code.Content[0].Title)
+
+	ret := []string{}
+	ret = append(ret, "```"+language)
+	ret = append(ret, code.Content[0].Title)
+	ret = append(ret, "```")
+
+	return ret
 }
 
-func (ctx *PageToMarkdownContext) headingToMarkdown(block guolai.Block) string {
+func (ctx *PageToMarkdownContext) calloutToMarkdown(callout guolai.Block) []string {
+	ret := []string{}
+
+	ret = append(ret, "::: tip "+callout.Icon.Icon)
+	ret = append(ret, ctx.richTextToMarkdown(callout.Content))
+	ret = append(ret, ":::")
+
+	return ret
+}
+
+func (ctx *PageToMarkdownContext) headingToMarkdown(block guolai.Block) []string {
 	ret := strings.Repeat("#", int(*block.Level))
 	ret += " " + ctx.richTextToMarkdown(block.Content)
 
-	return ret
+	return []string{ret}
 }
 
 func (ctx *PageToMarkdownContext) imageToMarkdown(block guolai.Block) string {
@@ -227,7 +243,7 @@ func (ctx *PageToMarkdownContext) fetchChildBlock(wolaiClient *guolai.WolaiAPI, 
 
 		// should not append line break when a block is list or quote
 		if blockContent.Children == nil {
-			ctx.Result = append(ctx.Result, BlockContent{Content: "\n"})
+			blockContent.Content = append(blockContent.Content, "\n")
 		}
 
 		blockChildren = append(blockChildren, blockContent)
@@ -243,7 +259,7 @@ func PageToMarkdown(wolaiClient *guolai.WolaiAPI, title string, page []guolai.Bl
 		Result:     []BlockContent{},
 	}
 
-	ctx.Result = append(ctx.Result, BlockContent{Content: "# " + title})
+	ctx.Result = append(ctx.Result, BlockContent{Content: []string{"# " + title}})
 
 	for _, block := range page {
 		blockContent := ctx.blockToMarkdown(block)
@@ -251,12 +267,12 @@ func PageToMarkdown(wolaiClient *guolai.WolaiAPI, title string, page []guolai.Bl
 			blockContent.Children = ctx.fetchChildBlock(wolaiClient, block.ID)
 		}
 
+		blockContent.Content = append(blockContent.Content, "\n")
 		ctx.Result = append(ctx.Result, blockContent)
-		ctx.Result = append(ctx.Result, BlockContent{Content: "\n"})
 	}
 
 	for index, footnote := range ctx.FootNotes {
-		ctx.Result = append(ctx.Result, BlockContent{Content: fmt.Sprintf("\n[^%d]: %s\n", index+1, footnote)})
+		ctx.Result = append(ctx.Result, BlockContent{Content: []string{fmt.Sprintf("\n[^%d]: %s\n", index+1, footnote)}})
 	}
 
 	return ctx
@@ -270,39 +286,47 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 	case "heading":
 		ret.Content = ctx.headingToMarkdown(block.Block)
 	case "text":
-		ret.Content = ctx.richTextToMarkdown(block.Content)
+		ret.Content = []string{ctx.richTextToMarkdown(block.Content)}
 	case "quote":
-		ret.Content = fmt.Sprintf("> %s", ctx.richTextToMarkdown(block.Content))
+		ret.Content = []string{fmt.Sprintf("> %s", ctx.richTextToMarkdown(block.Content))}
 	case "enum_list":
-		ret.Content = fmt.Sprintf("1. %s", ctx.richTextToMarkdown(block.Content))
+		ret.Content = []string{fmt.Sprintf("1. %s", ctx.richTextToMarkdown(block.Content))}
 		ret.Children = []BlockContent{}
 	case "bull_list":
-		ret.Content = fmt.Sprintf("- %s", ctx.richTextToMarkdown(block.Content))
+		ret.Content = []string{fmt.Sprintf("- %s", ctx.richTextToMarkdown(block.Content))}
 		ret.Children = []BlockContent{}
 	case "divider":
-		ret.Content = "---"
+		ret.Content = []string{"---"}
 	case "image":
-		ret.Content = ctx.imageToMarkdown(block.Block)
+		ret.Content = []string{ctx.imageToMarkdown(block.Block)}
 	case "todo_list":
-		ret.Content = ctx.taskListToMarkdown(block.Block)
+		ret.Content = []string{ctx.taskListToMarkdown(block.Block)}
 		ret.Children = []BlockContent{}
 	case "callout":
-		ret.Content = fmt.Sprintf("::: tip %s\n%s\n:::", block.Icon.Icon, ctx.richTextToMarkdown(block.Content))
+		ret.Content = ctx.calloutToMarkdown(block.Block)
 	case "block_equation":
-		ret.Content = fmt.Sprintf("$$%s$$", block.Content[0].Title)
+		ret.Content = []string{fmt.Sprintf("$$%s$$", block.Content[0].Title)}
 	case "embed":
-		ret.Content = fmt.Sprintf(`<iframe src="%s" width="100%%" style="border:none;"></iframe>`, *block.EmbedLink)
+		ret.Content = []string{fmt.Sprintf(`<iframe src="%s" width="100%%" style="border:none;"></iframe>`, *block.EmbedLink)}
 	case "page":
 		title := ctx.richTextToMarkdown(block.Content)
 		if strings.TrimSpace(title) == "" {
 			title = "untitled-page-" + block.ID
 		}
 		ctx.ChildPages[block.ID] = title
-		ret.Content = fmt.Sprintf("[%s](./%s/index.md)", title, url.PathEscape(title))
+		ret.Content = []string{fmt.Sprintf("[%s](./%s/index.md)", title, url.PathEscape(title))}
 	}
 
 	if block.Type != "enum_list" && block.Type != "bull_list" && block.Type != "todo_list" {
-		ret.Content = fmt.Sprintf("<p id=\"%s\">\n\n%s\n\n</p>", block.ID, ret.Content)
+		retContent := []string{
+			fmt.Sprintf("<p id=\"%s\">", block.ID),
+			"",
+		}
+		retContent = append(retContent, ret.Content...)
+		retContent = append(retContent, "")
+		retContent = append(retContent, "</p>")
+
+		ret.Content = retContent
 	}
 
 	return ret
