@@ -212,9 +212,5 @@ func (ctx *PageToMarkdownContext) blockToMarkdown(block guolai.BlockApiResponse)
 		ret += fmt.Sprintf("[%s](./%s/index.md)", title, url.PathEscape(title))
 	}
 
-	if block.Type != "enum_list" && block.Type != "bull_list" && block.Type != "todo_list" {
-		return fmt.Sprintf("<p id=\"%s\">\n\n%s\n\n</p>", block.ID, ret)
-	}
-
 	return ret
 }
